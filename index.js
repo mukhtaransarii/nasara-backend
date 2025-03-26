@@ -59,14 +59,15 @@ app.post("/verify-otp", async (req, res) => {
   let user = await User.findOne({ email });
   if (!user) user = await User.create({ email });
 
-  const { _id, cart = {}, address = "" } = user;
+  const { _id, address = "" } = user;
 
   const token = jwt.sign({
-    _id: user._id, email, cart, address
+    _id: user._id, email, address
   }, process.env.JWT_SECRET, { expiresIn: "30d" });
 
   delete OTP_STORE[email]; // Remove OTP after use
   res.json({ token });
+  console.log("login successfully :", token)
 });
 
 // Middleware to check auth
@@ -80,22 +81,6 @@ const auth = (req, res, next) => {
     next();
   });
 };
-
-app.post("/place-order/:id", async (req, res) => {
-  try {
-    const { id } = req.params; // Get user ID from URL
-    const { cart } = req.body; // Get cart from request body
-
-    const user = await User.findById(id);
-    
-    user.cart = [...user.cart, ...cart]; // Append new items to the existing cart
-    await user.save(); // Save changes
-
-    res.json({ message: "Order placed successfully", cart: user.cart });
-  } catch (err) {
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
 
 app.patch("/update-address/:id", async (req, res) => {
   try {
@@ -114,35 +99,28 @@ app.patch("/update-address/:id", async (req, res) => {
   }
 });
 
-app.delete("/cancel-order/:id/:orderId", async (req, res) => {
+// Get multiple users' email and address by userIds
+app.post("/users/details", async (req, res) => {
   try {
-    const { id, orderId } = req.params;
-    const user = await User.findById(id);
-    if (!user) return res.status(404).json({ error: "User not found" });
+    const { userIds } = req.body; // Expecting an array of userIds
 
-    user.cart = user.cart.filter(item => item.id !== orderId);
-    await user.save();
+    // Fetch user details for all given userIds
+    const users = await User.find({ _id: { $in: userIds } }).select("email address _id");
 
-    res.json({ message: "Order canceled successfully" });
-    
-    console.log("user._id from cancle order route", id)
-    console.log("orderId from cancle order route", orderId)
-  } catch (err) {
-    res.status(500).json({ error: "Internal Server Error" });
+    res.json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
 
-// for getting update user data
+// login get data from ecommmerce nasara
 app.get("/user/:id", async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ error: "Server error" });
-  }
+  const { id } = req.params
+  
+  const currentUser = await User.findById(id)
+  res.json(currentUser);
 });
 
 
@@ -152,4 +130,8 @@ app.get("/users", async (req, res) => {
   res.json(AllUsers);
 });
 
-app.listen(5000, () => console.log("Server running on port 5000"));
+app.get("/keep-warm", async (req, res) => {
+  res.json({message: 'server is active'})
+});
+
+app.listen(process.env.PORT, () => console.log("Server running on port 5001"));
