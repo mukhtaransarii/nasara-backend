@@ -67,7 +67,6 @@ app.post("/verify-otp", async (req, res) => {
 
   delete OTP_STORE[email]; // Remove OTP after use
   res.json({ token });
-  console.log("login successfully :", token)
 });
 
 // Middleware to check auth
